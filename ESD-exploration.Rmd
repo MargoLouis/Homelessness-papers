@@ -1,0 +1,1182 @@
+---
+title: "Exploration"
+author: "Louis Margolis"
+date: "`r Sys.Date()`"
+editor_options: 
+  chunk_output_type: console
+output:
+  html_document:
+    highlight: tango
+    number_sections: yes
+    theme: readable
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Beginning of the exploration 23/09/2024
+
+Trying to install stuff, need to remember to switch *backslash* to */*
+
+```{r installation wave 2012}
+#On PSE computer
+setwd("C:/Users/l.margolis/Documents/Données/Enquête Sans-Domicile/")
+ESD2012 <- read.csv("2012/Personnes/lil-0852/lil-0852.csv/Csv/frsd2012.csv", sep=";")
+
+ESD2001 <- read.csv("2001/lil-0178/lil-0178.csv/Csv/ind.csv", sep=";")
+
+#On personal Mac
+
+# setwd('/Users/louismargolis/Library/CloudStorage/Dropbox/PSE PhD/Données/Enquête Sans-Domicile/')
+# ESD2012 <- read.csv("2012/Personnes/lil-0852/lil-0852.csv/Csv/frsd2012.csv", sep=";")
+# 
+# ESD2001 <- read.csv('2001/lil-0178/lil-0178.csv/Csv/ind.csv', sep=";")
+```
+
+```{r packages, include=FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(ggalluvial)
+library(ggcorrplot)
+library(RColorBrewer)
+library(tigerstats)
+library(sf)
+library(knitr)
+library(stargazer)
+library(mvProbit)
+library(tigerstats) #rowPerc and colPerc
+library(car)
+library(kableExtra)
+library(broom)
+library(margins)
+library(ggstats)
+library(fastDummies)
+```
+
+Now lets try to plot the departments people live in
+## Stats desc.
+
+Now lets try to plot the departments people live in
+
+```{r evolution of living department, echo=FALSE}
+QIL <- subset(ESD2012, TYPE_QUEST=="qil")
+
+depevol <- QIL %>%
+  select(starts_with("DEP")|"IDENT_IND"|"POIDS_INDIV")
+
+depevol <- depevol[,c("IDENT_IND", "POIDS_INDIV", "DEPDEC10", "DEPJAN11", "DEPFEV11", "DEPMAR11", "DEPAVR11", "DEPMAI11", "DEPJUN11", "DEPJUL11", "DEPAOU11", "DEPSEP11", "DEPOCT11", "DEPNOV11", "DEPDEC11")]
+
+depevol[depevol == "2A"|depevol =="2B"] <- 20
+
+depevol[] <- lapply(depevol, as.numeric)
+
+depevol[depevol == 0|depevol == 99|depevol ==""] <- NA
+
+
+
+cor(depevol[c("DEPDEC10", "DEPJAN11", "DEPFEV11", "DEPMAR11", "DEPAVR11", "DEPMAI11", "DEPJUN11", "DEPJUL11", "DEPAOU11", "DEPSEP11", "DEPOCT11", "DEPNOV11", "DEPDEC11")], method="pearson", use = "pairwise.complete.obs")%>%
+  ggcorrplot(show.diag = FALSE, type="lower", lab=TRUE, lab_size = 2)
+TransMat <- table(depevol$DEPDEC10, depevol$DEPDEC11)
+
+#Faut tranformer en fonction des régions
+depevol$reg10 <- ifelse(depevol$DEPDEC10 == 97, "DOM", 
+                 ifelse(depevol$DEPDEC10 == 98, "TOM", 
+                 ifelse(depevol$DEPDEC10 %in% c(67, 68), "Alsace", 
+                 ifelse(depevol$DEPDEC10 %in% c(24, 33, 40, 47, 64), "Aquitaine", 
+                 ifelse(depevol$DEPDEC10 %in% c(3, 15, 43, 63), "Auvergne", 
+                 ifelse(depevol$DEPDEC10 %in% c(14, 50, 61), "Basse-Normandie", 
+                 ifelse(depevol$DEPDEC10 %in% c(21, 58, 71, 89), "Bourgogne", 
+                 ifelse(depevol$DEPDEC10 %in% c(22, 29, 35, 56), "Bretagne", 
+                 ifelse(depevol$DEPDEC10 %in% c(18, 28, 36, 37, 41, 45), "Centre", 
+                 ifelse(depevol$DEPDEC10 %in% c(8, 10, 51, 52), "Champagne-Ardenne", 
+                 ifelse(depevol$DEPDEC10 == 20, "Corse", 
+                 ifelse(depevol$DEPDEC10 %in% c(25, 39, 70, 90), "Franche-Comté", 
+                 ifelse(depevol$DEPDEC10 %in% c(27, 76), "Haute-Normandie", 
+                 ifelse(depevol$DEPDEC10 %in% c(75, 77, 78, 91, 92, 93, 94, 95), "Île-de-France", 
+                 ifelse(depevol$DEPDEC10 %in% c(11, 30, 34, 48, 66), "Languedoc-Roussillon", 
+                 ifelse(depevol$DEPDEC10 %in% c(19, 23, 87), "Limousin", 
+                 ifelse(depevol$DEPDEC10 %in% c(54, 55, 57, 88), "Lorraine", 
+                 ifelse(depevol$DEPDEC10 %in% c(9, 12, 31, 32, 46, 65, 81, 82), "Midi-Pyrénées", 
+                 ifelse(depevol$DEPDEC10 %in% c(59, 62), "Nord-Pas-de-Calais", 
+                 ifelse(depevol$DEPDEC10 %in% c(44, 49, 53, 72, 85), "Pays de la Loire", 
+                 ifelse(depevol$DEPDEC10 %in% c(2, 60, 80), "Picardie", 
+                 ifelse(depevol$DEPDEC10 %in% c(16, 17, 79, 86), "Poitou-Charentes", 
+                 ifelse(depevol$DEPDEC10 %in% c(4, 5, 6, 13, 83, 84), "Provence-Alpes-Côte-d'Azur", 
+                 ifelse(depevol$DEPDEC10 %in% c(1, 7, 26, 38, 42, 69, 73, 74), "Rhône-Alpes",
+                 NA))))))))))))))))))))))))
+
+depevol$reg11 <- ifelse(depevol$DEPDEC11 == 97, "DOM", 
+                 ifelse(depevol$DEPDEC11 == 98, "TOM", 
+                 ifelse(depevol$DEPDEC11 %in% c(67, 68), "Alsace", 
+                 ifelse(depevol$DEPDEC11 %in% c(24, 33, 40, 47, 64), "Aquitaine", 
+                 ifelse(depevol$DEPDEC11 %in% c(3, 15, 43, 63), "Auvergne", 
+                 ifelse(depevol$DEPDEC11 %in% c(14, 50, 61), "Basse-Normandie", 
+                 ifelse(depevol$DEPDEC11 %in% c(21, 58, 71, 89), "Bourgogne", 
+                 ifelse(depevol$DEPDEC11 %in% c(22, 29, 35, 56), "Bretagne", 
+                 ifelse(depevol$DEPDEC11 %in% c(18, 28, 36, 37, 41, 45), "Centre", 
+                 ifelse(depevol$DEPDEC11 %in% c(8, 10, 51, 52), "Champagne-Ardenne", 
+                 ifelse(depevol$DEPDEC11 == 20, "Corse", 
+                 ifelse(depevol$DEPDEC11 %in% c(25, 39, 70, 90), "Franche-Comté", 
+                 ifelse(depevol$DEPDEC11 %in% c(27, 76), "Haute-Normandie", 
+                 ifelse(depevol$DEPDEC11 %in% c(75, 77, 78, 91, 92, 93, 94, 95), "Île-de-France", 
+                 ifelse(depevol$DEPDEC11 %in% c(11, 30, 34, 48, 66), "Languedoc-Roussillon", 
+                 ifelse(depevol$DEPDEC11 %in% c(19, 23, 87), "Limousin", 
+                 ifelse(depevol$DEPDEC11 %in% c(54, 55, 57, 88), "Lorraine", 
+                 ifelse(depevol$DEPDEC11 %in% c(9, 12, 31, 32, 46, 65, 81, 82), "Midi-Pyrénées", 
+                 ifelse(depevol$DEPDEC11 %in% c(59, 62), "Nord-Pas-de-Calais", 
+                 ifelse(depevol$DEPDEC11 %in% c(44, 49, 53, 72, 85), "Pays de la Loire", 
+                 ifelse(depevol$DEPDEC11 %in% c(2, 60, 80), "Picardie", 
+                 ifelse(depevol$DEPDEC11 %in% c(16, 17, 79, 86), "Poitou-Charentes", 
+                 ifelse(depevol$DEPDEC11 %in% c(4, 5, 6, 13, 83, 84), "Provence-Alpes-Côte-d'Azur", 
+                 ifelse(depevol$DEPDEC11 %in% c(1, 7, 26, 38, 42, 69, 73, 74), "Rhône-Alpes",
+                 NA))))))))))))))))))))))))
+
+color_palette <- colorRampPalette(brewer.pal(8, "Set3"))(24)
+
+flow_data <- depevol %>%
+  group_by(reg10, reg11) %>%
+  tally() %>%
+  ungroup()
+
+
+ggplot(flow_data,
+       aes(axis1 = reg10, axis2 = reg11, y = n)) +
+  geom_alluvium(aes(fill = reg10)) +
+  geom_stratum(aes(fill = reg11)) +
+  geom_text(stat = "stratum", aes(label = paste(after_stat(stratum)))) +
+  scale_x_discrete(limits = c("reg10", "reg11"), expand = c(0.15, 0.15)) +
+  scale_fill_manual(values = color_palette) +
+  scale_color_manual(values = color_palette) +  # Use the 24-color palette
+  theme_minimal() +
+  theme(legend.position = "none") +
+  labs(title = "Flow from December 2010 to December 2011",
+       x = NULL,
+       y = "Flow Count")
+```
+
+
+Mapping (c.o. Thibaut Lapeyre)
+```{r mapping}
+# Create a dataframe with all departments from 1 to 97
+all_deps <- data.frame(Dep = c(1:19, "2A", "2B", 21:97))
+all_deps$Dep <- ifelse(grepl("^\\d$", all_deps$Dep), sprintf("%02d", as.integer(all_deps$Dep)), all_deps$Dep)
+
+# Map France's departements 
+
+fr <- st_read("C:/Users/l.margolis/Downloads/contour-des-departements.geojson")
+# fr <- st_read("/Users/louismargolis/Downloads/contour-des-departements.geojson")
+
+# Link each departments number with the coordinates 
+
+
+
+# Calculate the centroids of the polygons/multipolygons to extract lat and long
+fr_centroids <- st_centroid(fr)
+
+# Extract the centroid coordinates (longitude and latitude)
+fr_centroids <- fr_centroids %>%
+  mutate(
+    longitude = st_coordinates(geometry)[, 1],  # Extract the longitude
+    latitude = st_coordinates(geometry)[, 2]    # Extract the latitude
+  )
+
+head(fr_centroids)
+
+ggplot(data = fr) +
+  geom_sf(fill = "lightblue", color = "darkblue", size = 0.5) +  # Fill departments with color
+  labs(title = "Map of France's Departments") +  # Add a title
+  theme_minimal() +  # Use a minimal theme for a clean look
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 16)  # Center and bold title
+  )
+
+
+
+# merge the map and frequencies
+
+
+# # Count the occurrences 
+# df_counts <- QIL %>%
+#   group_by("Dep"=DEPDEC11) %>%
+#   summarise(count = n())%>%
+#   subset(Dep != "00" & Dep != "99" & Dep != "")
+# 
+# # Merge with the complete list of departments, filling in missing counts with 0
+# df_full_counts <- all_deps %>%
+#   left_join(df_counts, by = "Dep") %>%
+#   replace_na(list(count = 0))
+# 
+# # Merge the spatial data with the counts from df_full_counts
+# fr_with_counts <- fr %>%
+#   left_join(df_full_counts, by = c("code" = "Dep"))
+# 
+# # Define color values for the discrete scale
+# colors <- colorRampPalette(brewer.pal(8, "YlGnBu"))(10)
+# 
+# 
+# ggplot(data = fr_with_counts) +
+#   geom_sf(aes(fill = cut(count, breaks = c(-1,0,1,5,10,20,50,100,200,400, Inf), 
+#                          labels = c("0", "1", "2-5", "6-10", "11-20", "21-50", "51-100", "101-200", "200-400","400+"))), 
+#           color = "darkblue", size = 0.1) +
+#   scale_fill_manual(values = colors, na.value = "grey50", name = "Count") +
+#   labs(title = "Frequency of Occurrences by Department") +
+#   theme_minimal() +
+#   theme(
+#     plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+#     legend.position="right"
+# )
+
+timemapper <- function(DepMois) {
+  
+  # Ensure the variable DepMois is correctly interpreted in group_by
+  df_counts <- QIL %>%
+    group_by(Dep = !!sym(DepMois)) %>%  # No quotes around Dep
+    summarise(count = n()) %>%
+    subset(Dep != "00" & Dep != "99" & Dep != "")
+  
+  # Merge with the complete list of departments, filling in missing counts with 0
+  df_full_counts <- all_deps %>%
+    left_join(df_counts, by = "Dep") %>%
+    replace_na(list(count = 0))
+  
+  # Merge the spatial data with the counts from df_full_counts
+  fr_with_counts <- fr %>%
+    left_join(df_full_counts, by = c("code" = "Dep"))
+  
+  # Define color values for the discrete scale
+  colors <- colorRampPalette(brewer.pal(8, "YlGnBu"))(10)
+  
+  # Generate the plot
+  ggplot(data = fr_with_counts) +
+    geom_sf(aes(fill = cut(count, breaks = c(-1, 0, 1, 5, 10, 20, 50, 100, 200, 400, Inf), 
+                           labels = c("0", "1", "2-5", "6-10", "11-20", "21-50", "51-100", "101-200", "200-400", "400+"))), 
+            color = "darkblue", size = 0.1) +
+    scale_fill_manual(values = colors, na.value = "grey50", name = "Count") +
+    labs(title = paste("Population en ", substr(DepMois, 4, 6), " 20",substr(DepMois, 7, 8), sep="")) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+      legend.position = "right"
+    )
+}
+
+timemapper("DEPDEC10")%>%ggsave(file="Dec10.png")
+timemapper("DEPJAN11")%>%ggsave(file="Jan11.png")
+timemapper("DEPFEV11")%>%ggsave(file="Fev11.png")
+timemapper("DEPMAR11")%>%ggsave(file="Mar11.png")
+timemapper("DEPAVR11")%>%ggsave(file="Avr11.png")
+timemapper("DEPMAI11")%>%ggsave(file="Mai11.png")
+timemapper("DEPJUN11")%>%ggsave(file="Jun11.png")
+timemapper("DEPJUL11")%>%ggsave(file="Jul11.png")
+timemapper("DEPAOU11")%>%ggsave(file="Aou11.png")
+timemapper("DEPSEP11")%>%ggsave(file="Sep11.png")
+timemapper("DEPOCT11")%>%ggsave(file="Oct11.png")
+timemapper("DEPNOV11")%>%ggsave(file="Nov11.png")
+timemapper("DEPDEC11")%>%ggsave(file="Dec11.png")
+
+
+
+```
+Can compare GLOCFRA (département du dernier logement) with where they were living in that same year
+Can look at type of living situation the previous year
+
+```{r mode getter and comparison}
+get_mode <- function(x) {
+  # Remove "00", "", and "99" from the vector
+  x_cleaned <- x[!(x %in% c("00", "", "99"))]
+  
+  # Calculate mode from the cleaned vector
+  if (length(x_cleaned) == 0) {
+    return(NA)  # Return NA if no valid values are left
+  }
+  
+  uniq_vals <- unique(x_cleaned)  # Get unique values
+  uniq_vals[which.max(tabulate(match(x_cleaned, uniq_vals)))]  # Return the most frequent value
+}
+
+ESD2012test <- ESD2012 %>%
+  rowwise() %>%
+  mutate(mode_value = get_mode(c_across(starts_with("DEP")))) %>%
+  ungroup()
+
+ggplot(subset(ESD2012test, !is.na(GLOCFRA)),
+       aes(axis1 = as.factor(GLOCFRA), axis2 = as.numeric(mode_value))) +
+    geom_alluvium(aes(fill = as.factor(GLOCFRA))) +
+    geom_stratum() +
+    theme_minimal() +
+    geom_text(stat = "stratum", aes(label = paste(after_stat(stratum)))) +
+    scale_fill_manual(values = colorRampPalette(brewer.pal(8, "Set3"))(26))+
+    theme(legend.position = "none")
+
+```
+
+```{r exploration of data}
+table(ESD2012$HDALO, ESD2012$HDEMCOND)
+table(ESD2012$HDEMOU11, ESD2012$HDEMCOND)
+table(ESD2012$HDEMOU12, ESD2012$HDEMCOND)
+table(ESD2012$HDEMOU13, ESD2012$HDEMCOND)
+table(ESD2012$HDEMOU14, ESD2012$HDEMCOND)
+table(ESD2012$HDEMOU15, ESD2012$HDEMCOND)
+table(ESD2012$HDEMOU21, ESD2012$HDEMCOND)
+table(ESD2012$HDEMOU22, ESD2012$HDEMCOND)
+table(ESD2012$HDEMOU23, ESD2012$HDEMCOND)
+
+Chercheurs <- subset(ESD2012, HDEMCOND==1)
+Chercheurs <- Chercheurs %>%
+  mutate(
+    DALO = ifelse(HDALO==3, 0, 1),
+    MAIRIE = ifelse(HDEMOU11 == 1, 1, 0),
+    ASSO = ifelse(HDEMOU12 == 1, 1, 0),
+    OrgaHLM = ifelse(HDEMOU13 == 1, 1, 0),
+    PREF = ifelse(HDEMOU14 == 1, 1, 0),
+    SANS_PREC = ifelse(HDEMOU15 == 1, 1, 0),
+    ANNONCE = ifelse(HDEMOU21 == 1, 1, 0),
+    FAM_AMI_CONN = ifelse(HDEMOU22 == 1, 1, 0),
+    AUTRE_DEM = ifelse(HDEMOU23 == 1, 1, 0)
+  )
+
+Chercheurs2 <- subset(ESD2012, !is.na(HDEMCOND)) %>%
+  mutate(
+    DALO = ifelse(HDEMCOND==2, 0, ifelse(HDALO==3, 0, 1)),
+    MAIRIE = ifelse(HDEMCOND==2, 0, ifelse(HDEMOU11 == 1, 1, 0)),
+    ASSO = ifelse(HDEMCOND==2, 0, ifelse(HDEMOU12 == 1, 1, 0)),
+    OrgaHLM = ifelse(HDEMCOND==2, 0, ifelse(HDEMOU13 == 1, 1, 0)),
+    PREF = ifelse(HDEMCOND==2, 0, ifelse(HDEMOU14 == 1, 1, 0)),
+    SANS_PREC = ifelse(HDEMCOND==2, 0, ifelse(HDEMOU15 == 1, 1, 0)),
+    ANNONCE = ifelse(HDEMCOND==2, 0, ifelse(HDEMOU21 == 1, 1, 0)),
+    FAM_AMI_CONN = ifelse(HDEMCOND==2, 0, ifelse(HDEMOU22 == 1, 1, 0)),
+    AUTRE_DEM = ifelse(HDEMCOND==2, 0, ifelse(HDEMOU23 == 1, 1, 0))
+  )
+
+outcome_vars <- c("DALO", "MAIRIE", "ASSO", "OrgaHLM", "PREF", "ANNONCE", "FAM_AMI_CONN", "AUTRE_DEM")
+
+cor(Chercheurs[outcome_vars], method="pearson", use = "pairwise.complete.obs")%>%
+  ggcorrplot(show.diag = TRUE, type="lower", lab=TRUE, lab_size = 2, digits = 3)
+
+cor(Chercheurs2[outcome_vars], method="pearson", use = "pairwise.complete.obs")%>%
+  ggcorrplot(show.diag = TRUE, type="lower", lab=TRUE, lab_size = 2, digits = 3)
+```
+
+After discussing with Manasi Chhabra, I came up with a non-exhaustive list of possible controls:
+
+* Sex (factor(ASEXE)) - 1 Homme 2 Femme
+```{r sex}
+table(QIL$ASEXE) 
+```
+* Age (AAGEAIS - âge au 31/12/2011)
+```{r age}
+hist(QIL$AAGEAIS)
+```
+* Number of kids (AENF -> 0 in ANBENF_TOT -> ENFANTS)
+```{r kids}
+table(QIL$AENF)
+table(QIL$ANBENF_TOT)
+Chercheurs$ENFANTS <- ifelse(Chercheurs$AENF==2,0,Chercheurs$ANBENF_TOT)
+table(Chercheurs$ENFANTS)
+```
+* Partner (PartnerxSex, AETATMAT probably more than ASEP)
+* Country of origin (ANAIS8 for groups of birthplaces, ALNAIS for born in France or abroad, ANATIO for nationality by group with options for dual citizens in next var)
+    + France: current location=previous housing location?
+    + not France:
+        - time spent in France? (ADURFR)
+        - legality of situation? (need to combine variables to try to get all people with potential manque de papiers)
+        - refugee/asylum seeker? (don't have this per say)
+```{r origin}
+table(QIL$ANAIS8) # 1 France 2 DOM-TOM 3 UE15 4 UE récent 5 Maghreb 6 Autre Afrique 7 Autre Europe + ex-URSS 8 Autre
+table(QIL$ADURFR) # Moins de 3 mois; De 3 mois à 5 ans; 5 ans ou plus
+```
+* Job status (has one or not JTRAVACT + income IREVACTR for bins of work income, IREVTOTTR for bins of total income)
+```{r work}
+table(QIL$JTRAVACT)
+```
+* Time spent in the street (lifetime in years)
+```{r time in street/center/housed by third party in years}
+table(ifelse(is.na(QIL$GRUEA),0,QIL$GRUEA)+ifelse(is.na(QIL$GCTA),0,QIL$GCTA)+ifelse(is.na(QIL$GHBA),0,QIL$GHBA))
+QIL$YEARSHOMELESS <- ifelse(is.na(QIL$GRUEA),0,QIL$GRUEA)+ifelse(is.na(QIL$GCTA),0,QIL$GCTA)+ifelse(is.na(QIL$GHBA),0,QIL$GHBA)
+Chercheurs$YEARSHOMELESS <- ifelse(is.na(Chercheurs$GRUEA),0,Chercheurs$GRUEA)+ifelse(is.na(Chercheurs$GCTA),0,Chercheurs$GCTA)+ifelse(is.na(Chercheurs$GHBA),0,Chercheurs$GHBA)
+```
+Time in current accomodation: une nuit/moins d'une semaine/une semaine à moins d'un mois/1-3 mois/3-6 mois/6 mois à 2 ans/ 2-5 ans/5 ans à moins de 10 ans/10 ans ou plus
+```{r time in current accomodation}
+table(ifelse(is.na(QIL$DENDANC),0,QIL$DENDANC)+ifelse(is.na(QIL$CENDANC),0,QIL$CENDANC)+ifelse(is.na(QIL$EENDANC),0,QIL$EENDANC))
+
+QIL$TIMEinACCOMODATION <- ifelse(is.na(QIL$DENDANC),0,QIL$DENDANC)+ifelse(is.na(QIL$CENDANC),0,QIL$CENDANC)+ifelse(is.na(QIL$EENDANC),0,QIL$EENDANC)
+Chercheurs$TIMEinACCOMODATION <- ifelse(is.na(Chercheurs$DENDANC),0,Chercheurs$DENDANC)+ifelse(is.na(Chercheurs$CENDANC),0,Chercheurs$CENDANC)+ifelse(is.na(Chercheurs$EENDANC),0,Chercheurs$EENDANC)
+Chercheurs$TIMEinACCOMODATION <- ifelse(Chercheurs$TIMEinACCOMODATION==99, NA, Chercheurs$TIMEinACCOMODATION)
+```
+* Where previous night was spent (can be proxy for exposure to information) H1T or BENDHTYP for general groups
+* Disability (can easily be endogenous, if possible control for time disabled/moment of disability)
+    + Physical: OCHRONIEX pour maladie ou pb de santé chronique, OLIMITE pour handicap (OCAUSLIM pour causes)
+    + Mental
+* Criminal history/addiction (high endogeneity risk, can look at évènemements avant 18 ans PPHPEVE01-PPHPEVE16, use as controls)
+* Any family in France? TBD
+* Access to phone/internet? NTELM et NINTE
+* Situation with regards to housing SITUA/SITUA_1/SITUA_2
+
+```{r baseline regressions OLS on chercheurs dataset, echo=FALSE, eval=FALSE, results='asis', warning=FALSE}
+summary(lm(DALO ~ as.factor(ASEXE) + as.factor(AENF) + as.factor(ANAIS8) +as.factor(JTRAVACT) + YEARSHOMELESS + TIMEinACCOMODATION, data=subset(Chercheurs, ASEXE !="")))
+summary(lm(MAIRIE ~ as.factor(ASEXE) + as.factor(AENF) + as.factor(ANAIS8) +as.factor(JTRAVACT) + YEARSHOMELESS + TIMEinACCOMODATION, data=subset(Chercheurs, ASEXE !="")))
+summary(lm(ASSO ~ as.factor(ASEXE) + as.factor(AENF) + as.factor(ANAIS8) +as.factor(JTRAVACT) + YEARSHOMELESS + TIMEinACCOMODATION, data=subset(Chercheurs, ASEXE !="")))
+summary(lm(OrgaHLM ~ as.factor(ASEXE) + as.factor(AENF) + as.factor(ANAIS8) +as.factor(JTRAVACT) + YEARSHOMELESS + TIMEinACCOMODATION, data=subset(Chercheurs, ASEXE !="")))
+summary(lm(PREF ~ as.factor(ASEXE) + as.factor(AENF) + as.factor(ANAIS8) +as.factor(JTRAVACT) + YEARSHOMELESS + TIMEinACCOMODATION, data=subset(Chercheurs, ASEXE !="")))
+summary(lm(SANS_PREC ~ as.factor(ASEXE) + as.factor(AENF) + as.factor(ANAIS8) +as.factor(JTRAVACT) + YEARSHOMELESS + TIMEinACCOMODATION, data=subset(Chercheurs, ASEXE !="")))
+summary(lm(ANNONCE ~ as.factor(ASEXE) + as.factor(AENF) + as.factor(ANAIS8) +as.factor(JTRAVACT) + YEARSHOMELESS + TIMEinACCOMODATION, data=subset(Chercheurs, ASEXE !="")))
+summary(lm(FAM_AMI_CONN ~ as.factor(ASEXE) + as.factor(AENF) + as.factor(ANAIS8) +as.factor(JTRAVACT) + YEARSHOMELESS + TIMEinACCOMODATION, data=subset(Chercheurs, ASEXE !="")))
+summary(lm(AUTRE_DEM ~ as.factor(ASEXE) + as.factor(AENF) + as.factor(ANAIS8) +as.factor(JTRAVACT) + YEARSHOMELESS + TIMEinACCOMODATION, data=subset(Chercheurs, ASEXE !="")))
+```
+```{r OLS and Probit, results='asis'}
+# Initialize an empty list to store models
+models <- list()
+modelsProb <- list()
+
+# Loop through each outcome variable and run the regression
+for (outcome in outcome_vars) {
+  models[[outcome]] <- lm(as.formula(paste(outcome, "~ as.factor(ASEXE) + AAGEAIS + ENFANTS + as.factor(ANAIS8) + as.factor(JTRAVACT) + YEARSHOMELESS + TIMEinACCOMODATION")), 
+                         data = subset(Chercheurs, ASEXE != ""))
+}
+
+# Use stargazer to create the table
+stargazer(models, 
+          type = "html",
+          title = "Regression Results (OLS)", 
+          align = TRUE,
+          dep.var.labels.include = FALSE,
+          column.labels = outcome_vars)
+
+for (outcome in outcome_vars) {
+  modelsProb[[outcome]] <- glm(as.formula(paste(outcome, "~ as.factor(ASEXE) + AAGEAIS + ENFANTS + as.factor(ANAIS8) + as.factor(JTRAVACT) + YEARSHOMELESS + TIMEinACCOMODATION")), 
+                           family = binomial(link = "probit"),
+                           data = subset(Chercheurs, ASEXE != ""))
+}
+
+# Use stargazer to create the table
+stargazer(modelsProb, 
+          type = "html",
+          title = "Probit Regression Results", 
+          align = TRUE,
+          dep.var.labels.include = FALSE,
+          column.labels = outcome_vars)
+
+# data_subset <- na.omit(Chercheurs[c("ASEXE", "AENF", "ANAIS8", "JTRAVACT", "YEARSHOMELESS", "TIMEinACCOMODATION",
+#                                     "DALO", "MAIRIE", "ASSO", "OrgaHLM", "PREF", "SANS_PREC",
+#                                     "ANNONCE", "FAM_AMI_CONN", "AUTRE_DEM")])
+# model <- mvProbit(cbind(DALO, MAIRIE, ASSO, OrgaHLM, PREF, SANS_PREC, ANNONCE, FAM_AMI_CONN, AUTRE_DEM) ~ 
+#                     as.factor(ASEXE) + 
+#                     as.factor(AENF) + 
+#                     as.factor(ANAIS8) + 
+#                     as.factor(JTRAVACT) + 
+#                     YEARSHOMELESS + 
+#                     TIMEinACCOMODATION, 
+#                     data = data_subset)
+# summary(model)
+data_subset <- na.omit(Chercheurs2[c("ASEXE", "AENF", "ANAIS8", "JTRAVACT",
+                                    "DALO", "MAIRIE", "ASSO", "OrgaHLM", "PREF")])
+```
+
+Summary stats:
+```{r summary stats 2012}
+library(summarytools)
+dfSummary(QIL[, c("ASEXE", "AAGEAIS", "ANAIS8", "ADURFR", "SITUA_FAM", "SITUA", "JTRAVACT")])
+
+#Education
+summary_table <- QIL %>%
+  group_by(MDIPLO) %>%
+  summarise(Frequency = n()) %>%
+  mutate(
+    Percentage = round((Frequency / sum(Frequency)) * 100, 1),
+    Education_Level = factor(case_when(
+      MDIPLO == 0 ~ "Aucun diplôme",
+      MDIPLO == 1 ~ "Diplôme d'animation (BAFA, etc.)",
+      MDIPLO == 2 ~ "Certificat d'études primaires",
+      MDIPLO == 3 ~ "Brevet des collèges, BEPC, brevet élémentaire",
+      MDIPLO == 4 ~ "CAP, BEP ou autre diplôme de ce niveau",
+      MDIPLO == 5 ~ "Baccalauréat technologique ou professionnel",
+      MDIPLO == 6 ~ "Baccalauréat général ou équivalent",
+      MDIPLO == 7 ~ "Diplôme de niveau Bac + 2",
+      MDIPLO == 8 ~ "Diplôme de niveau supérieur à Bac + 2",
+      MDIPLO == 9 ~ "Ne sait pas"
+    )),
+    Broader_Group = case_when(
+      MDIPLO == 0 ~ "No diploma",
+      MDIPLO %in% 1:4 ~ "Less than a high school diploma",
+      MDIPLO %in% 5:6 ~ "High school diploma (Baccalauréat)",
+      MDIPLO %in% 7:8 ~ "Some higher education",
+      MDIPLO == 9 | is.na(MDIPLO) ~ "Other/Unknown"
+    )
+  )
+colors <- c(
+    "No diploma" = "#E57373",
+    "Less than a high school diploma" = "#FFB74D",
+    "High school diploma (Baccalauréat)" = "#64B5F6",
+    "Some higher education" = "#81C784",
+    "Other/Unknown" = "#A1887F"
+)
+ggplot(summary_table, aes(x = reorder(Education_Level, MDIPLO), y = Frequency, fill = Broader_Group)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Distribution of Educational Levels (MDIPLO)",
+    x = "Education Level",
+    y = "Frequency"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = colors, name = "Broader Group")+
+  theme(legend.position = "none")
+
+QIL <- QIL%>%
+  mutate(
+    DALO = ifelse(HDALO==3, 0, 1),
+    MAIRIE = ifelse(HDEMOU11 == 1, 1, 0),
+    ASSO = ifelse(HDEMOU12 == 1, 1, 0),
+    OrgaHLM = ifelse(HDEMOU13 == 1, 1, 0),
+    PREF = ifelse(HDEMOU14 == 1, 1, 0),
+    ANNONCE = ifelse(HDEMOU21 == 1, 1, 0),
+    FAM_AMI_CONN = ifelse(HDEMOU22 == 1, 1, 0),
+    AUTRE_DEM = ifelse(HDEMOU23 == 1, 1, 0)
+  )
+
+cor(QIL[outcome_vars], method="pearson", use = "pairwise.complete.obs")%>%
+  ggcorrplot(show.diag = TRUE, type="lower", lab=TRUE, lab_size = 2, digits = 3)
+
+QIL <- QIL %>%
+  mutate(EDUC = case_when(
+    MDIPLO == 0 ~ "No diploma",
+    MDIPLO %in% 1:4 ~ "Less than a high school diploma",
+    MDIPLO %in% 5:6 ~ "High school diploma (Baccalauréat)",
+    MDIPLO %in% 7:8 ~ "Some higher education",
+    MDIPLO == 9 | is.na(MDIPLO) ~ "Other/Unknown"
+  ))
+
+ESD2012 <- ESD2012 %>%
+  mutate(EDUC = case_when(
+    MDIPLO == 0 ~ "No diploma",
+    MDIPLO %in% 1:4 ~ "Less than a high school diploma",
+    MDIPLO %in% 5:6 ~ "High school diploma (Baccalauréat)",
+    MDIPLO %in% 7:8 ~ "Some higher education",
+    MDIPLO == 9 | is.na(MDIPLO) ~ "Other/Unknown"
+  ))
+
+```
+
+More regressions (grouped and ungrouped)
+
+```{r for nov 21, results='asis', warning=FALSE}
+# Initialize an empty list to store models
+models <- list()
+modelsProb <- list()
+
+# Loop through each outcome variable and run the regression
+for (outcome in outcome_vars) {
+  models[[outcome]] <- lm(as.formula(paste(outcome, "~ as.factor(ASEXE) + AAGEAIS + as.factor(SITUA_FAM) + as.factor(ANATIO) + as.factor(JTRAVACT) + as.factor(EDUC)")), 
+                         data = subset(QIL, ASEXE != "" & EDUC != "Other/Unknown"))
+}
+
+# Use stargazer to create the table
+stargazer(models, 
+          type = "html",
+          title = "Regression Results (OLS)", 
+          align = TRUE,
+          dep.var.labels.include = FALSE,
+          column.labels = outcome_vars)
+
+QIL$VoieOff <- ifelse(!is.na(QIL$MAIRIE) | !is.na(QIL$PREF), ifelse(QIL$MAIRIE==1 | QIL$PREF==1, 1, 0),NA)
+QIL$DemActeurs <- ifelse(!is.na(QIL$ASSO) | !is.na(QIL$OrgaHLM), ifelse(QIL$OrgaHLM==1 | QIL$ASSO==1, 1, 0),NA)
+QIL$AutresEssais <- ifelse(!is.na(QIL$ANNONCE) | !is.na(QIL$FAM_AMI_CONN) | !is.na(QIL$AUTRE_DEM), ifelse(QIL$ANNONCE==1 | QIL$FAM_AMI_CONN==1 | QIL$AUTRE_DEM==1, 1, 0),NA)
+QIL <- QIL %>%
+  mutate(
+    AGEGROUP = as.numeric(cut(
+      AAGEAIS,
+      breaks = seq(18, 88, by = 10), # Breaks from 18 to 88 in 10-year intervals
+      labels = 1:7, # Labels for each bin
+      right = FALSE # Ensure each bin includes its lower bound but excludes the upper bound
+    )
+  ))
+
+ESD2012 <- ESD2012 %>%
+  mutate(
+    AGEGROUP = as.numeric(cut(
+      AAGEAIS,
+      breaks = seq(17, 97, by = 10), # Breaks from 18 to 88 in 10-year intervals
+      labels = 1:8, # Labels for each bin
+      right = FALSE # Ensure each bin includes its lower bound but excludes the upper bound
+    )
+  ))
+
+
+outcome_vars2 <- c("DALO", "VoieOff", "DemActeurs", "AutresEssais")
+# Initialize an empty list to store models
+modelsgrouped <- list()
+modelsProbgrouped <- list()
+
+# Loop through each outcome variable and run the regression
+for (outcome in outcome_vars2) {
+  modelsgrouped[[outcome]] <- lm(as.formula(paste(outcome, "~ as.factor(ASEXE) + AGEGROUP + as.factor(SITUA_FAM) + as.factor(ANATIO) + as.factor(JTRAVACT) + as.factor(EDUC)")), 
+                         data = subset(QIL, ASEXE != "" & EDUC != "Other/Unknown" & ANATIO !=8))
+}
+
+# Use stargazer to create the table
+stargazer(modelsgrouped, 
+          type = "html",
+          title = "Regression Results (OLS)", 
+          align = TRUE,
+          dep.var.labels.include = FALSE,
+          column.labels = outcome_vars2)
+
+for (outcome in outcome_vars2) {
+  modelsProbgrouped[[outcome]] <- glm(as.formula(paste(outcome, "~ as.factor(ASEXE) + AGEGROUP + as.factor(SITUA_FAM) + as.factor(ANATIO) + as.factor(JTRAVACT) + as.factor(EDUC)")), 
+                           family = binomial(link = "probit"),
+                           data = subset(QIL, ASEXE != ""& EDUC != "Other/Unknown" & ANATIO !=8))
+}
+
+# Use stargazer to create the table
+stargazer(modelsProbgrouped, 
+          type = "html",
+          title = "Probit Regression Results", 
+          align = TRUE,
+          dep.var.labels.include = FALSE,
+          column.labels = outcome_vars2)
+```
+
+
+```{r 2001 wave stuff, results='asis'}
+dfSummary(ESD2001[, c("SEXE", "ANAIS", "NATIO", "VIECOU", "VIEENF", "FI")])
+ESD2001$ANAIS <- ifelse(ESD2001$ANAIS<9999, ESD2001$ANAIS, NA)
+ESD2001$NATIO <- ifelse(ESD2001$NATIO<9, ESD2001$NATIO, NA)
+ESD2001$VIEENF <- ifelse(ESD2001$VIEENF<9, ESD2001$VIEENF, NA)
+ESD2001$FI <- ifelse(ESD2001$FI<9, ESD2001$FI, NA)
+ESD2001$TRAV <- ifelse(ESD2001$FI==1, 1, 0)
+ESD2001 <- ESD2001 %>%
+  mutate(
+    EDUC = case_when(
+      NIVETUD %in% c(0, 1, 2) ~ "No diploma", # Includes those with no formal education, preschool, or primary education
+      NIVETUD %in% c(15, 17, 20, 21, 22) ~ "Less than a high school diploma", # Includes lower and mid-level secondary education
+      NIVETUD %in% c(30) ~ "High school diploma (Baccalauréat)", # Includes vocational and technical high school diplomas
+      NIVETUD %in% c(41, 46, 47) ~ "Some higher education", # Includes all levels of higher education
+      TRUE ~ NA_character_ # Handles unexpected or missing values
+    )
+  )
+
+ESD2001 <- ESD2001 %>%
+  mutate(
+    MAIRIE = ifelse(DEMOU1 == 1, 1, ifelse(DEMOU1 == 9, NA, 2)),
+    ASSO = ifelse(DEMOU2 == 1, 1, ifelse(DEMOU2 == 9, NA, 2)),
+    OrgaHLM = ifelse(DEMOU3 == 1, 1, ifelse(DEMOU3 == 9, NA, 2)),
+    PREF = ifelse(DEMOU4 == 1, 1, ifelse(DEMOU4 == 9, NA, 2)),
+    ANNONCE = ifelse(DEMOU5 == 1, 1, ifelse(DEMOU5 == 9, NA, 2)),
+    FAM_AMI_CONN = ifelse(DEMOU6 == 1, 1, ifelse(DEMOU6 == 9, NA, 2)),
+    AUTRE_DEM = ifelse(DEMOU7 == 1, 1, ifelse(DEMOU7 == 9, NA, 2))
+  )
+ESD2001$VoieOff <- ifelse(!is.na(ESD2001$MAIRIE) | !is.na(ESD2001$PREF), ifelse(ESD2001$MAIRIE==1 | ESD2001$PREF==1, 1, 0),NA)
+ESD2001$DemActeurs <- ifelse(!is.na(ESD2001$ASSO) | !is.na(ESD2001$OrgaHLM), ifelse(ESD2001$OrgaHLM==1 | ESD2001$ASSO==1, 1, 0),NA)
+ESD2001$AutresEssais <- ifelse(!is.na(ESD2001$ANNONCE) | !is.na(ESD2001$FAM_AMI_CONN) | !is.na(ESD2001$AUTRE_DEM), ifelse(ESD2001$ANNONCE==1 | ESD2001$FAM_AMI_CONN==1 | ESD2001$AUTRE_DEM==1, 1, 0),NA)
+outcome_vars3 <- c("VoieOff", "DemActeurs", "AutresEssais")
+
+modelsProbgrouped <- list()
+for (outcome in outcome_vars3) {
+  modelsProbgrouped[[outcome]] <- glm(as.formula(paste(outcome, "~ as.factor(SEXE) + ANAIS + as.factor(NATIO) + as.factor(VIECOU)*as.factor(VIEENF) + as.factor(TRAV) + as.factor(EDUC)")), 
+                           family = binomial(link = "probit"),
+                           data = subset(ESD2001))
+}
+
+# Use stargazer to create the table
+stargazer(modelsProbgrouped, 
+          type = "html",
+          title = "Probit Regression Results", 
+          align = TRUE,
+          dep.var.labels.include = FALSE,
+          column.labels = outcome_vars2)
+```
+
+I now wish to calculate probability of looking, conditional on different characteristics. 
+This requires looking at the question 
+"Depuis un an, avez-vous, vous / vous et votre conjoint, cherché un logement personnel ou essayé d’en changer ?" (2012), codé par HDEMCOND en 1 Oui, 2 Non, et
+"Depuis un an, avez-vous (ou votre conjoint) fait des démarches pour trouver un logement ?" (2001), avec 
+1 Oui, et vous avez fait vous-même ces démarches, 
+2 Oui, mais c'est qqn d'autre qui s'en est occupé pour vous,
+3 Non, aucune démarche n'a été faite 
+9 Non-réponse
+```{r prob of looking 2012 and 2001, results='asis'}
+rowPerc(table(ESD2012$HDEMCOND)) #49.66% de recherches, 50.34% de non recherche
+rowPerc(table(ESD2001$DEM)) #37.59% de recherches soi-même (infos plus facilement disponibles en vague 2?), 10.63% de recherche par autrui, 51.54% de non recherche et 0.24% de non-réponses.
+ESD2012 <- ESD2012 %>%
+  mutate(
+    Look = ifelse(HDEMCOND == 1, 1, ifelse(HDEMCOND == 2, 0, NA)))
+ESD2001 <- ESD2001 %>%
+  mutate(
+    Look = ifelse(DEM == 1 | DEM==2, 1, ifelse(DEM == 3, 0, NA)),
+    SoloLook = ifelse(DEM == 1, 1, ifelse(DEM == 3 | DEM == 2, 0, NA)),
+    OtherLook = ifelse(DEM==2, 1, ifelse(DEM == 3 | DEM == 1, 0, NA)))
+
+glm(Look ~ as.factor(ASEXE) + AGEGROUP + as.factor(SITUA_FAM) + as.factor(ANATIO) + as.factor(JTRAVACT) + as.factor(EDUC), 
+                           family = binomial(link = "probit"),
+                           data = subset(ESD2012, TYPE_QUEST=="qil" & ASEXE != ""& EDUC != "Other/Unknown" & ANATIO !=8))
+
+summary(glm(Look ~ as.factor(ASEXE) + AGEGROUP + as.factor(SITUA_FAM) + as.factor(ANATIO) + as.factor(JTRAVACT) + as.factor(EDUC), 
+                           family = binomial(link = "probit"),
+                           data = subset(ESD2012, TYPE_QUEST=="qil" & ASEXE != ""& EDUC != "Other/Unknown" & ANATIO !=8)))
+
+modelsProbSearch <- list()
+modelsProbSearch[["2012"]] <- glm(Look ~ as.factor(ASEXE) + AGEGROUP + as.factor(SITUA_FAM) + as.factor(ANATIO) + as.factor(JTRAVACT) + as.factor(EDUC), 
+                           family = binomial(link = "probit"),
+                           data = subset(ESD2012, TYPE_QUEST=="qil" & ASEXE != ""& EDUC != "Other/Unknown" & ANATIO !=8))
+
+for (outcome in c("Look", "SoloLook", "OtherLook")) {
+  modelsProbSearch[[outcome]] <- glm(as.formula(paste(outcome, "~ as.factor(SEXE) + ANAIS + as.factor(NATIO) + as.factor(VIECOU)*as.factor(VIEENF) + as.factor(TRAV) + as.factor(EDUC)")), 
+                           family = binomial(link = "probit"),
+                           data = subset(ESD2001))
+}
+
+stargazer(modelsProbSearch, 
+          type = "html",
+          title = "Probit Regression Results", 
+          align = TRUE,
+          dep.var.labels.include = FALSE,
+          column.labels = c("2012 Look", "2001 Look", "2001 Solo Look", "2001 Other Look"))
+```
+
+Starting over to make good stat descs and regressions:
+```{r stat desc and regs, results='asis'}
+Wave2012 <- ESD2012 %>%
+  mutate(
+    Female = ifelse(ASEXE == 2, 1, ifelse(ASEXE == 1, 0, NA)),
+    Age2 = AAGEAIS,
+    Age = cut(
+      AAGEAIS,
+      breaks = c(10, 21, 31, 41, 51, 61, 71, Inf), 
+      labels = c("<20","21-30","31-40", "41-50", "51-60", "61-70", "71+"), # 71-80 and 81+ are the same with prob. 0.9287 (Wald test), as are 51-60 and 61-70 with prob. 0.9901
+      right = FALSE # Ensure each bin includes its lower bound but excludes the upper bound
+    ),
+    French = ifelse(ANATIOCA1R == 1, 1, ifelse(ANATIOCA1R > 1, 0, NA)),
+    Other_EU_15 = ifelse(ANATIOCA1R == 3 , 1, ifelse(ANATIOCA1R > 3 | ANATIOCA1R == 1, 0, NA)),
+    Post_2001_EU = ifelse(ANATIOCA1R == 4 , 1, ifelse(ANATIOCA1R > 4 | ANATIOCA1R == 1 | ANATIOCA1R == 3, 0, NA)),
+    Non_EU = ifelse(ANATIOCA1R > 4, 1, 0), #prob that Non_EU = Other_EU is 0.1843, can't reject null but not comfortable grouping them, check eligibility for different programs
+    Single = ifelse(SITUA_FAM == 3 | SITUA_FAM == 4 | SITUA_FAM == 5, 1, ifelse(SITUA_FAM == 1 | SITUA_FAM == 2, 0, NA)),
+    Children = ifelse(SITUA_FAM == 1 | SITUA_FAM == 4 , 1, ifelse(SITUA_FAM == 3 | SITUA_FAM == 2 | SITUA_FAM == 5, 0, NA)),
+    Single_w_kids = Single*Children,
+    Job = ifelse(JTRAVACT == 1, 1, 0),
+    Education = EDUC, # could do ifelse(EDUC== "No diploma", "Less than a high school diploma", EDUC) #No statistical difference between No diploma or Less than HSD
+    DALO = ifelse(HDEMCOND==2, 0, ifelse(HDALO==3, 0, 1))
+    )%>%
+  mutate(Nationality = factor(ifelse(French == 1, "French", ifelse(Other_EU_15 == 1, "Other EU 15", ifelse(Post_2001_EU == 1, "Post-2001 EU", "Non EU"))), levels = c("French", "Other EU 15", "Post-2001 EU", "Non EU")))%>%
+  mutate(Age = factor(Age, levels = c("21-30","<20","31-40", "41-50", "51-60", "61-70", "71+")),
+         DALO = ifelse(Look==1, DALO, NA))
+
+Wave2001 <- ESD2001 %>%
+  mutate(
+    Female = ifelse(SEXE == 2, 1, ifelse(SEXE == 1, 0, NA)),
+    Age2 = 2001-ANAIS,
+    Age = cut(
+      2001-ANAIS,
+      breaks = c(10, 21, 31, 41, 51, 61, 71, Inf), 
+      labels = c("<20","21-30","31-40", "41-50", "51-60", "61-70", "71+"), # 71-80 and 81+ are the same with prob. 0.9369 (Wald test), 51-60 and 61-70 only have a Wald Prob of 0.2079, still high but not as high
+      right = FALSE # Ensure each bin includes its lower bound but excludes the upper bound
+    ),
+    French = ifelse(NATIO == 1, 1, ifelse(NATIO == 2, 0, NA)),
+    Other_EU_15 = ifelse(NATIOCA %in% c(101, 102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113) , 1, ifelse(NATIO == 1 | NATIOCA >113, 0, NA)), #Pas de danois ni finlandais, ce sont les pays qui étaient dans l'UE avant 2001
+    Post_2001_EU = ifelse(NATIOCA %in% c(302,304, 305, 306, 307, 308) , 1, ifelse(NATIO == 1 | NATIOCA >309 |NATIOCA<302, 0, NA)),
+    Non_EU = ifelse(NATIO == 1, 0, ifelse(NATIOCA==301 |NATIOCA > 308, 1, 0)), #prob that Non_EU = Other_EU is 0.1843, can't reject null but not comfortable grouping them, check eligibility for different programs
+    Single = VIECOU-1,
+    Children = ifelse(VIEENF == 1, 1, ifelse(VIEENF == 2, 0, NA)),
+    Single_w_kids = Single*Children,
+    Job = TRAV,
+    Education = EDUC #Not same coefficients
+  )%>%
+  mutate(Nationality = factor(ifelse(French == 1, "French", ifelse(Other_EU_15 == 1, "Other EU 15", ifelse(Post_2001_EU == 1, "Post-2001 EU", "Non EU"))), levels = c("French", "Other EU 15", "Post-2001 EU", "Non EU")))%>%
+  mutate(Age = factor(Age, levels = c("21-30","<20","31-40", "41-50", "51-60", "61-70", "71+")),
+         VoieOff = ifelse(!is.na(MAIRIE) | !is.na(PREF), ifelse(MAIRIE==1 | PREF==1, 1, 0),NA),)
+
+
+Wave2001$Wave <- 2001
+Wave2012$Wave <- 2012
+
+relevant_columns <- c("Look", "Female", "Age", "Age2", "Nationality", "French", "Other_EU_15", "Post_2001_EU", "Non_EU", "Single", "Children", "Single_w_kids", "Job", "Education", "Wave")
+summary_stat <- c("Female", "Age2", "Nationality", "French", "Other_EU_15", "Post_2001_EU", "Non_EU", "Single", "Children", "Single_w_kids", "Job", "Education")
+
+Combined_waves <- rbind(Wave2001[, relevant_columns, drop = FALSE],Wave2012[Wave2012$TYPE_QUEST == "qil" & Wave2012$Education != "Other/Unknown", relevant_columns, drop = FALSE])
+Combined_waves <- cbind(Combined_waves, dummy_cols(Combined_waves$Education))
+Wave2001_ <- cbind(Wave2001[, summary_stat, drop = FALSE], dummy_cols(cbind(Wave2001[, summary_stat, drop = FALSE]$Education)))
+Wave2012_ <- cbind(subset(Wave2012, TYPE_QUEST=="qil")[, summary_stat, drop = FALSE], dummy_cols(subset(Wave2012, TYPE_QUEST=="qil")[, summary_stat, drop = FALSE]$Education))
+
+full_model2012 <- glm(
+  Look ~ Female + Age + Other_EU_15 + Post_2001_EU + Non_EU + Single + Children + Single_w_kids + Job + Education,
+  family = binomial(link = "probit"),
+  data = subset(Wave2012, TYPE_QUEST == "qil" & Education != "Other/Unknown"))
+
+summary(full_model2012)
+
+# Test if no diploma and less than HS is same:
+# linearHypothesis(full_model2012, "EDUCLess than a high school diploma = EDUCNo diploma")
+# Yields no conclusive evidence that I should reject the null, chi-square is small 0.0598 and prob of the two being the same is 0.8068
+
+full_model2001 <- glm(
+    Look ~ Female + Age + Other_EU_15 + Post_2001_EU + Non_EU + Single + Children + Single_w_kids + Job + Education,
+    family = binomial(link = "probit"),
+    data = Wave2001)
+
+summary(full_model2001)
+
+fullsample_model <- glm(
+    Look ~ Female + Age + Other_EU_15 + Post_2001_EU + Non_EU + Single + Children + Single_w_kids + Job + Education,
+    family = binomial(link = "probit"),
+    data = Combined_waves)
+
+summary(fullsample_model)
+
+modelsProbSearch <- list()
+modelsProbSearch[["Both waves"]] <- fullsample_model
+modelsProbSearch[["2001"]] <- full_model2001
+modelsProbSearch[["2012"]] <- full_model2012
+
+stargazer(
+    Wave2001_,
+    type = "latex",  # Use "html" for an HTML table
+    title = "Summary Statistics for Wave 2001",
+    summary = TRUE
+)
+
+stargazer(
+    Wave2012_,
+    type = "latex",  # Use "html" for an HTML table
+    title = "Summary Statistics for Wave 2012",
+    summary = TRUE
+)
+
+stargazer(
+    Combined_waves,
+    type = "latex",  # Use "html" for an HTML table
+    title = "Summary Statistics for all data",
+    summary = TRUE
+)
+
+# stargazer(
+#   modelsProbSearch,
+#   type = "text",
+#   title = "Probit Regression Results",
+#   align = TRUE,
+#   column.labels = c("Both waves", "2001", "2012"),
+#   omit.stat = c("LL", "aic")
+# )
+
+stargazer(
+  modelsProbSearch,
+  type = "html",
+  title = "Probit Regression Results",
+  align = TRUE,
+  column.labels = c("Both waves", "2001", "2012"),
+  omit.stat = c("LL", "aic")
+)
+```
+
+```{r cleaner tables, results='asis'}
+# Add stars based on p-value
+model_data <- lapply(modelsProbSearch, function(model) {
+  tidy(model) %>%
+    mutate(
+      stars = case_when(
+        p.value < 0.01 ~ "***",
+        p.value < 0.05 ~ "**",
+        p.value < 0.1 ~ "*",
+        TRUE ~ ""
+      ),
+      formatted_coef = sprintf("%.3f%s", estimate, stars),  # Coefficients with stars
+      formatted_se = sprintf("(%.3f)", std.error)           # Standard errors in parentheses
+    )
+})
+
+# Combine results into one table
+model_table <- bind_rows(
+  mutate(model_data[[1]], Wave = "Both waves"),
+  mutate(model_data[[2]], Wave = "2001"),
+  mutate(model_data[[3]], Wave = "2012"),
+  .id = "Model"
+)
+
+# Rename variables for better readability
+model_table <- model_table %>%
+  mutate(term = dplyr::recode(term, 
+    `(Intercept)` = "Constant",
+    `Age<20` = "  <20", 
+    `Age31-40` = "  31-40",
+    `Age41-50` = "  41-50",
+    `Age51-60` = "  51-60",
+    `Age61-70` = "  61-70",
+    `Age71+` = "  71+",
+    `Other_EU_15` = "  Other EU-15",
+    `Post_2001_EU` = "  Post 2001 EU",
+    `Non_EU` = "  Non-EU",
+    `EducationLess than a high school diploma` = "  Less than High School",
+    `EducationNo diploma` = "  No Diploma",
+    `EducationSome higher education` = "  Some Higher Education",
+    `Single_w_kids` = "Single * Children"
+  )) 
+
+
+# Pivot table for final display
+display_table <- model_table %>%
+  mutate(
+    Group = case_when(
+      term %in% c("Constant") ~ "",
+      term %in% c("  <20", "  31-40", "  41-50", "  51-60", "  61-70", "  71+") ~ "Age 21-30 (ref):",
+      term %in% c("  Other EU-15", "  Post 2001 EU", "  Non-EU") ~ "Nationality: French (ref)",
+      term %in% c("  Less than High School", "  No Diploma", "  Some Higher Education") ~ "Education (ref: High School Diploma)",
+      TRUE ~ ""
+    )
+  ) %>%
+  select(term, Wave, Group, formatted_coef, formatted_se) %>%
+  pivot_wider(
+    names_from = Wave,
+    values_from = c(formatted_coef, formatted_se),
+    names_glue = "{Wave}_{.value}"
+  ) %>%
+  mutate(term = factor(term, levels = c(
+    "Female",
+    "  <20", "  31-40", "  41-50", "  51-60", "  61-70", "  71+",  # Age
+    "  Other EU-15", "  Post 2001 EU", "  Non-EU",                  # Nationality
+    "Single",                                                       # Single
+    "Children",                                                     # Children
+    "Single * Children",                                            # Single with kids
+    "Job",                                                          # Job
+    "  No Diploma", "  Less than High School", "  Some Higher Education", # Education
+    "Constant",                                                      # Constant
+    "Observations"
+  ))) %>%
+  arrange(term)
+
+# Merge coefficients and SDs into separate rows for display
+final_table <- display_table %>%
+  rowwise() %>%
+  mutate(
+    `Both waves` = paste0(`Both waves_formatted_coef`, "\n", `Both waves_formatted_se`),
+    `2001` = paste0(`2001_formatted_coef`, "\n", `2001_formatted_se`),
+    `2012` = paste0(`2012_formatted_coef`, "\n", `2012_formatted_se`)
+  ) %>%
+  select(term, `Both waves`, `2001`, `2012`)
+final_table <- rbind(final_table, c(term="Observations", "7,904", "3,987", "3,917"))
+
+# Format into an HTML table
+final_table %>%
+  kbl(
+    format = "html",
+    align = "lccc",  # Match column alignment
+    col.names = c("", "Both waves", "2001", "2012")  # Custom header
+  ) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  group_rows("Age: 21-30 (ref)", 2, 7) %>%
+  group_rows("Nationality: French (ref)", 8, 10) %>%
+  group_rows("Education (ref: High School Diploma)", 15, 17) %>%
+  add_header_above(c(" " = 1, "Regression coefficient estimates" = 3))%>%  # Adjust header
+kableExtra::row_spec(18, extra_css = "border-bottom: 2px solid")
+
+##### Marginal effects
+ame_summary_full <- as.data.frame(summary(margins(glm(
+    Look ~ Female + Age + Nationality + Single + Children + Single_w_kids + Job + Education,
+    family = binomial(link = "probit"),
+    data = Combined_waves)))) %>%
+  dplyr::mutate(
+    significance = case_when(
+      p < 0.001 ~ "***",
+      p < 0.01  ~ "**",
+      p < 0.05  ~ "*",
+      TRUE      ~ ""
+    )
+  ) %>%
+  mutate(
+    formatted_coef = paste0(round(AME, 3), significance), 
+    formatted_se = paste0("(", round(SE,3), ")")
+  )
+
+ame_summary_2001 <- as.data.frame(summary(margins(glm(
+    Look ~ Female + Age + Nationality + Single + Children + Single_w_kids + Job + Education,
+    family = binomial(link = "probit"),
+    data = Wave2001)))) %>%
+  dplyr::mutate(
+    significance = case_when(
+      p < 0.001 ~ "***",
+      p < 0.01  ~ "**",
+      p < 0.05  ~ "*",
+      TRUE      ~ ""
+    )
+  ) %>%
+  mutate(
+    formatted_coef = paste0(round(AME, 3), significance), 
+    formatted_se = paste0("(", round(SE,3), ")")
+  )
+
+ame_summary2012 <- as.data.frame(summary(margins(glm(
+    Look ~ Female + Age + Nationality + Single + Children + Single_w_kids + Job + Education,
+    family = binomial(link = "probit"),
+    data = subset(Wave2012, TYPE_QUEST == "qil" & Education != "Other/Unknown"))))) %>%
+  dplyr::mutate(
+    significance = case_when(
+      p < 0.001 ~ "***",
+      p < 0.01  ~ "**",
+      p < 0.05  ~ "*",
+      TRUE      ~ ""
+    )
+  ) %>%
+  mutate(
+    formatted_coef = paste0(round(AME, 3), significance), 
+    formatted_se = paste0("(", round(SE,3), ")")
+  )
+
+model_table_AME <- bind_rows(
+  mutate(ame_summary_full, Wave = "Both waves"),
+  mutate(ame_summary_2001, Wave = "2001"),
+  mutate(ame_summary2012, Wave = "2012"),
+  .id = "Model"
+)
+
+model_table_AME <- model_table_AME %>%
+  mutate(factor = dplyr::recode(factor, 
+    `Age<20` = "  <20", 
+    `Age31-40` = "  31-40",
+    `Age41-50` = "  41-50",
+    `Age51-60` = "  51-60",
+    `Age61-70` = "  61-70",
+    `Age71+` = "  71+",
+    `EducationLess than a high school diploma` = "  Less than High School",
+    `EducationNo diploma` = "  No Diploma",
+    `EducationSome higher education` = "  Some Higher Education",
+    `Single_w_kids` = "Single * Children",
+    `NationalityNon EU`= "  Non-EU",
+    `NationalityOther EU 15`= "  Other EU-15",
+    `NationalityPost-2001 EU`= "  Post 2001 EU"
+  )) 
+
+# Pivot table for final display
+display_table_AME <- model_table_AME %>%
+  mutate(
+    Group = case_when(
+      factor %in% c("  <20", "  31-40", "  41-50", "  51-60", "  61-70", "  71+") ~ "Age: 21-30 (ref)",
+      factor %in% c("  Other EU-15", "  Post 2001 EU", "  Non-EU") ~ "Nationality: French (ref)",
+      factor %in% c("  Less than High School", "  No Diploma", "  Some Higher Education") ~ "Education (ref: High School Diploma)",
+      TRUE ~ ""
+    )
+  ) %>%
+  select(factor, Wave, Group, formatted_coef, formatted_se) %>%
+  pivot_wider(
+    names_from = Wave,
+    values_from = c(formatted_coef, formatted_se),
+    names_glue = "{Wave}_{.value}"
+  ) %>%
+  mutate(factor = factor(factor, levels = c(
+    "Female",
+    "  <20", "  31-40", "  41-50", "  51-60", "  61-70", "  71+",  # Age
+    "  Other EU-15", "  Post 2001 EU", "  Non-EU",                  # Nationality
+    "Single",                                                       # Single
+    "Children",                                                     # Children
+    "Single * Children",                                            # Single with kids
+    "Job",                                                          # Job
+    "  No Diploma", "  Less than High School", "  Some Higher Education", # Education
+    "Constant",                                                      # Constant
+    "Observations"
+  ))) %>%
+  arrange(factor)
+
+# Merge coefficients and SDs into separate rows for display
+final_table_AME <- display_table_AME %>%
+  rowwise() %>%
+  mutate(
+    `Both waves` = paste0(`Both waves_formatted_coef`, "\n", `Both waves_formatted_se`),
+    `2001` = paste0(`2001_formatted_coef`, "\n", `2001_formatted_se`),
+    `2012` = paste0(`2012_formatted_coef`, "\n", `2012_formatted_se`)
+  ) %>%
+  select(factor, `Both waves`, `2001`, `2012`)
+final_table_AME <- rbind(final_table_AME, c(factor="Observations", "7,904", "3,987", "3,917"))
+
+# Format into an HTML table
+final_table_AME %>%
+  kbl(
+    format = "html",
+    align = "lccc",  # Match column alignment
+    col.names = c("", "Both waves", "2001", "2012")  # Custom header
+  ) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  group_rows("Age: 21-30 (ref)", 2, 7) %>%
+  group_rows("Nationality: French (ref)", 8, 10) %>%
+  group_rows("Education (ref: High School Diploma)", 15, 17) %>%
+  add_header_above(c(" " = 1, "Marginal effect estimates" = 3))%>%  # Adjust header
+kableExtra::row_spec(17, extra_css = "border-bottom: 2px solid")
+
+#####
+glm(
+    Look ~ Female + Age + Nationality + Single + Children + Single_w_kids + Job + Education,
+    family = binomial(link = "probit"),
+    data = Combined_waves)|> 
+    ggstats::ggcoef_model(
+        tidy_fun = broom.helpers::tidy_marginal_predictions,
+        tidy_args = list(type = "response"),
+        show_p_values = FALSE,
+        signif_stars = FALSE,
+        significance = NULL,
+        vline = FALSE
+    )
+
+```
+
+```{r stat desc}
+
+# Example dataset
+data <- Combined_waves  # Replace with your dataset
+
+# Variables for which you want to compute category shares
+categorical_vars <- c("Education", "Age", "Nationality")  # Categorical variables
+binary_vars <- c("Female", "Single", "Children", "Single_w_kids", "Job")  # Binary variables
+
+
+categorical_summary <- data %>%
+  select(all_of(categorical_vars)) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Category") %>%
+  group_by(Variable, Category) %>%
+  summarise(
+    Count = n(),
+    Proportion = Count / nrow(data) * 100,
+    .groups = "drop"
+  )
+
+# Summarize binary variables
+binary_summary <- data %>%
+  select(all_of(binary_vars)) %>%
+  summarise(across(
+    everything(),
+    list(
+      Count = ~ sum(., na.rm = TRUE),       # Count of '1's
+      Proportion = ~ mean(., na.rm = TRUE) * 100  # Percentage of '1's
+    ),
+    .names = "{.col}.{.fn}"  # Avoid confusion by using "." as the separator
+  )) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = c("Variable", "Statistic"),
+    names_sep = "\\.",  # Match the separator used in `.names`
+    values_to = "Value" # Specify output column name
+  ) %>%
+  pivot_wider(
+    names_from = Statistic,
+    values_from = Value
+  )
+
+# Combine categorical and binary summaries
+combined_summary <- bind_rows(
+  categorical_summary %>%
+    mutate(Proportion = paste0(round(Proportion, 2), "%")),  # Format categorical percentages
+  binary_summary %>%
+    mutate(Category = "1",  # Binary variables have "1" as the relevant category
+           Proportion = paste0(round(Proportion, 2), "%"))  # Format binary percentages
+)
+
+
+
+```
+
+After discussing with a homeless friend as well as with Eleonore Richard, there are differences in types of population by type of accomodation:
+```{r heterogeneity by shelter}
+table(ESD2012$H0T, ESD2012$BENDHTYP)
+```
